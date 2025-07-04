@@ -1,0 +1,479 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Price Calculator – Risk Management Tool</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #0a0a0a;
+            color: #e5e5e5;
+        }
+        .container-glow {
+            position: relative;
+            background: rgba(16, 16, 16, 0.6);
+            border-radius: 1rem;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            z-index: 1;
+        }
+        .container-glow::before {
+            content: '';
+            position: absolute;
+            top: -2px; left: -2px; right: -2px; bottom: -2px;
+            /* UPDATED: Softer, more eye-friendly gradient */
+            background: linear-gradient(135deg, #4338ca, #14b8a6);
+            z-index: -1;
+            filter: blur(15px);
+            border-radius: 1rem;
+            opacity: 0.3;
+            transition: opacity 0.3s ease-in-out;
+        }
+        .container-glow:hover::before { opacity: 0.5; }
+        .form-input {
+            background-color: rgba(255, 255, 255, 0.05);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            color: #e5e5e5;
+            transition: all 0.3s ease;
+        }
+        .form-input:focus {
+            background-color: rgba(255, 255, 255, 0.1);
+            border-color: #14b8a6; /* Match new gradient */
+            box-shadow: 0 0 15px rgba(20, 184, 166, 0.3); /* Match new gradient */
+        }
+        .btn-glow {
+            background: linear-gradient(135deg, #4338ca, #14b8a6); /* Match new gradient */
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 15px rgba(20, 184, 166, 0.2);
+        }
+        .btn-glow:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(20, 184, 166, 0.4);
+        }
+        .result-card {
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            transition: all 0.3s ease;
+        }
+        .buy-sell-toggle {
+            display: flex; border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 0.5rem; overflow: hidden;
+        }
+        .buy-sell-toggle button {
+            flex: 1; padding: 0.75rem; border: none; background: transparent;
+            color: #a0a0a0; cursor: pointer; transition: all 0.3s ease;
+        }
+        .buy-sell-toggle button.active { color: #ffffff; font-weight: 600; }
+        .buy-sell-toggle .slider {
+            position: absolute; top: 0; bottom: 0; width: 50%;
+            border-radius: 0.5rem; transition: all 0.3s cubic-bezier(0.68, -0.55, 0.27, 1.55);
+            z-index: -1;
+        }
+        .buy-sell-toggle .slider.buy { left: 0; background: linear-gradient(135deg, #00b09b, #96c93d); }
+        .buy-sell-toggle .slider.sell { left: 50%; background: linear-gradient(135deg, #ff416c, #ff4b2b); }
+        .error-message { color: #ff4b2b; font-size: 0.875rem; height: 1.25rem; transition: all 0.3s ease; }
+        .editable-risk-input {
+            background: transparent; border: none; font-size: 1.5rem; line-height: 2rem;
+            font-weight: 700; color: #facc15; width: 100%; padding: 0;
+        }
+        .editable-risk-input:disabled { background: transparent; }
+        .editable-risk-input:focus { outline: none; border-bottom: 2px solid #14b8a6; }
+        .edit-btn, .copy-btn {
+            background-color: rgba(255, 255, 255, 0.1); color: #a0a0a0;
+            border: none; padding: 0.25rem 0.75rem; border-radius: 0.375rem;
+            font-size: 0.75rem; transition: all 0.2s ease;
+        }
+        .edit-btn:hover, .copy-btn:hover { background-color: rgba(255, 255, 255, 0.2); color: #e5e5e5; }
+        .copy-btn { padding: 0.5rem; }
+        .visual-trade-bar { display: flex; width: 100%; height: 1.5rem; border-radius: 0.5rem; overflow: hidden; background-color: rgba(255,255,255,0.1); }
+        .visual-bar-risk { background-color: #ff4b2b; }
+        .visual-bar-reward { background-color: #00b09b; }
+        .scenario-btn {
+            background-color: rgba(255, 255, 255, 0.05); border: 1px solid rgba(255, 255, 255, 0.1);
+            color: #a0a0a0; transition: all 0.2s ease;
+        }
+        .scenario-btn:hover { background-color: rgba(255, 255, 255, 0.1); color: #e5e5e5; }
+
+    </style>
+</head>
+<body class="min-h-screen flex items-center justify-center p-4 bg-black">
+    <div class="w-full max-w-4xl mx-auto">
+        <div class="container-glow p-6 sm:p-8">
+            <div class="text-center mb-8">
+                <h1 class="text-3xl sm:text-4xl font-bold text-white tracking-tight">Price Calculator</h1>
+                <p class="text-neutral-400 mt-2">Smart & Stylish Risk Management Tool for Traders</p>
+            </div>
+
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                <!-- Input Section -->
+                <div class="space-y-4">
+                    <!-- Scenario Management -->
+                    <div class="p-3 rounded-lg bg-white/5 space-y-3">
+                        <label class="block text-sm font-medium text-neutral-300">Scenarios</label>
+                        <div class="flex gap-2">
+                            <select id="load-scenario-select" class="w-full p-2 rounded-md form-input text-sm">
+                                <option value="">Load a scenario...</option>
+                            </select>
+                            <button id="delete-scenario-btn" class="p-2 rounded-md scenario-btn">Delete</button>
+                        </div>
+                        <button id="save-scenario-btn" class="w-full p-2 rounded-md scenario-btn">Save Current as Scenario</button>
+                    </div>
+
+                    <div>
+                        <label class="block text-sm font-medium text-neutral-300 mb-2">Trade Direction</label>
+                        <div class="relative buy-sell-toggle">
+                            <div class="slider buy"></div>
+                            <button id="buy-btn" class="active">Buy</button>
+                            <button id="sell-btn">Sell</button>
+                        </div>
+                    </div>
+                    <div>
+                        <label for="currency-pair" class="block text-sm font-medium text-neutral-300 mb-2">Currency Pair</label>
+                        <input type="text" id="currency-pair" placeholder="e.g., EUR/USD" class="w-full p-3 rounded-lg form-input uppercase">
+                    </div>
+                    <div>
+                        <label for="entry-price" class="block text-sm font-medium text-neutral-300 mb-2">Entry Price</label>
+                        <input type="number" step="any" id="entry-price" placeholder="e.g., 1.07500" class="w-full p-3 rounded-lg form-input">
+                    </div>
+                    <div>
+                        <label for="account-size" class="block text-sm font-medium text-neutral-300 mb-2">Account Size (USD)</label>
+                        <input type="number" step="any" id="account-size" placeholder="e.g., 10000" class="w-full p-3 rounded-lg form-input">
+                    </div>
+                    <div class="grid grid-cols-2 gap-4">
+                        <div>
+                            <label for="risk-percent" class="block text-sm font-medium text-neutral-300 mb-2">Risk (%)</label>
+                            <input type="number" step="any" id="risk-percent" value="1" class="w-full p-3 rounded-lg form-input">
+                        </div>
+                        <div>
+                            <label for="rr-ratio" class="block text-sm font-medium text-neutral-300 mb-2">R:R Ratio (1:X)</label>
+                            <input type="number" step="any" id="rr-ratio" value="3" class="w-full p-3 rounded-lg form-input">
+                        </div>
+                    </div>
+                    <div>
+                        <label for="stop-loss-pips" class="block text-sm font-medium text-neutral-300 mb-2">Stop Loss (Pips)</label>
+                        <input type="number" step="any" id="stop-loss-pips" placeholder="e.g., 20" class="w-full p-3 rounded-lg form-input">
+                    </div>
+                    <button id="calculate-btn" class="w-full p-3 rounded-lg font-semibold text-white btn-glow !mt-8">Calculate</button>
+                    <p id="error-message" class="error-message text-center"></p>
+                </div>
+
+                <!-- Output Section -->
+                <div class="space-y-4">
+                    <div id="visual-trade-bar-container" class="hidden">
+                        <p class="text-sm text-neutral-400 mb-2">Visual Risk/Reward</p>
+                        <div id="visual-trade-bar" class="visual-trade-bar"></div>
+                    </div>
+                    <div id="result-risk-amount-card" class="p-5 rounded-lg result-card hidden">
+                        <div class="flex justify-between items-start">
+                            <div>
+                                <p class="text-sm text-neutral-400">Risk Amount (USD)</p>
+                                <div class="flex items-center">
+                                    <span class="text-2xl font-bold text-yellow-400 mr-1">$</span>
+                                    <input type="number" id="editable-risk-amount" class="editable-risk-input" disabled>
+                                </div>
+                                <p id="risk-feedback" class="text-xs text-neutral-500 h-4 mt-1"></p>
+                            </div>
+                            <button id="edit-risk-btn" class="edit-btn">Edit</button>
+                        </div>
+                    </div>
+                    <div id="result-pip-value" class="p-5 rounded-lg result-card hidden"><p class="text-sm text-neutral-400">Pip Value</p><p class="text-2xl font-bold text-white">-</p></div>
+                    <div id="result-lot-size" class="p-5 rounded-lg result-card hidden"><p class="text-sm text-neutral-400">Suggested Lot Size</p><p class="text-2xl font-bold text-white">-</p></div>
+                    <div id="result-stop-loss" class="p-5 rounded-lg result-card hidden">
+                        <div class="flex justify-between items-center">
+                            <div><p class="text-sm text-neutral-400">Stop Loss Price</p><p id="sl-price-value" class="text-2xl font-bold text-red-400">-</p></div>
+                            <button class="copy-btn" data-copy-target="sl-price-value"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16"><path d="M4 1.5H3a2 2 0 0 0-2 2V14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V3.5a2 2 0 0 0-2-2h-1v1h1a1 1 0 0 1 1 1V14a1 1 0 0 1-1 1H3a1 1 0 0 1-1-1V3.5a1 1 0 0 1 1-1h1v-1z"/><path d="M9.5 1a.5.5 0 0 1 .5.5v1a.5.5 0 0 1-.5.5h-3a.5.5 0 0 1-.5-.5v-1a.5.5 0 0 1 .5-.5h3zm-3-1A1.5 1.5 0 0 0 5 1.5v1A1.5 1.5 0 0 0 6.5 4h3A1.5 1.5 0 0 0 11 2.5v-1A1.5 1.5 0 0 0 9.5 0h-3z"/></svg></button>
+                        </div>
+                    </div>
+                    <div id="result-take-profit" class="p-5 rounded-lg result-card hidden">
+                        <div class="flex justify-between items-center">
+                            <div><p class="text-sm text-neutral-400">Take Profit Price</p><p id="tp-price-value" class="text-2xl font-bold text-green-400">-</p></div>
+                             <button class="copy-btn" data-copy-target="tp-price-value"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16"><path d="M4 1.5H3a2 2 0 0 0-2 2V14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V3.5a2 2 0 0 0-2-2h-1v1h1a1 1 0 0 1 1 1V14a1 1 0 0 1-1 1H3a1 1 0 0 1-1-1V3.5a1 1 0 0 1 1-1h1v-1z"/><path d="M9.5 1a.5.5 0 0 1 .5.5v1a.5.5 0 0 1-.5.5h-3a.5.5 0 0 1-.5-.5v-1a.5.5 0 0 1 .5-.5h3zm-3-1A1.5 1.5 0 0 0 5 1.5v1A1.5 1.5 0 0 0 6.5 4h3A1.5 1.5 0 0 0 11 2.5v-1A1.5 1.5 0 0 0 9.5 0h-3z"/></svg></button>
+                        </div>
+                    </div>
+                     <div id="result-breakeven" class="p-5 rounded-lg result-card hidden">
+                        <div class="flex justify-between items-center">
+                            <div><p class="text-sm text-neutral-400">Breakeven Price (est. 1 pip spread)</p><p id="be-price-value" class="text-2xl font-bold text-blue-400">-</p></div>
+                             <button class="copy-btn" data-copy-target="be-price-value"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16"><path d="M4 1.5H3a2 2 0 0 0-2 2V14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V3.5a2 2 0 0 0-2-2h-1v1h1a1 1 0 0 1 1 1V14a1 1 0 0 1-1 1H3a1 1 0 0 1-1-1V3.5a1 1 0 0 1 1-1h1v-1z"/><path d="M9.5 1a.5.5 0 0 1 .5.5v1a.5.5 0 0 1-.5.5h-3a.5.5 0 0 1-.5-.5v-1a.5.5 0 0 1 .5-.5h3zm-3-1A1.5 1.5 0 0 0 5 1.5v1A1.5 1.5 0 0 0 6.5 4h3A1.5 1.5 0 0 0 11 2.5v-1A1.5 1.5 0 0 0 9.5 0h-3z"/></svg></button>
+                        </div>
+                    </div>
+                    <div id="result-expected-profit" class="p-5 rounded-lg result-card hidden"><p class="text-sm text-neutral-400">Expected Profit</p><p class="text-2xl font-bold text-green-400">-</p></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            // --- DOM Element References ---
+            const buyBtn = document.getElementById('buy-btn'), sellBtn = document.getElementById('sell-btn');
+            const slider = document.querySelector('.slider');
+            const currencyPairInput = document.getElementById('currency-pair');
+            const entryPriceInput = document.getElementById('entry-price');
+            const accountSizeInput = document.getElementById('account-size');
+            const riskPercentInput = document.getElementById('risk-percent');
+            const rrRatioInput = document.getElementById('rr-ratio');
+            const stopLossPipsInput = document.getElementById('stop-loss-pips');
+            const calculateBtn = document.getElementById('calculate-btn');
+            const errorMessage = document.getElementById('error-message');
+
+            const resultRiskAmountCard = document.getElementById('result-risk-amount-card');
+            const editableRiskAmountInput = document.getElementById('editable-risk-amount');
+            const editRiskBtn = document.getElementById('edit-risk-btn');
+            const riskFeedback = document.getElementById('risk-feedback');
+
+            const resultPipValueCard = document.getElementById('result-pip-value');
+            const resultLotSizeCard = document.getElementById('result-lot-size');
+            const resultStopLossCard = document.getElementById('result-stop-loss');
+            const resultTakeProfitCard = document.getElementById('result-take-profit');
+            const resultBreakevenCard = document.getElementById('result-breakeven');
+            const resultExpectedProfitCard = document.getElementById('result-expected-profit');
+            
+            const visualTradeBarContainer = document.getElementById('visual-trade-bar-container');
+            const visualTradeBar = document.getElementById('visual-trade-bar');
+
+            const saveScenarioBtn = document.getElementById('save-scenario-btn');
+            const loadScenarioSelect = document.getElementById('load-scenario-select');
+            const deleteScenarioBtn = document.getElementById('delete-scenario-btn');
+
+            let tradeDirection = 'buy';
+
+            // --- Event Listeners ---
+            buyBtn.addEventListener('click', () => setTradeDirection('buy'));
+            sellBtn.addEventListener('click', () => setTradeDirection('sell'));
+            calculateBtn.addEventListener('click', handleCalculation);
+            editRiskBtn.addEventListener('click', enableRiskEditing);
+            editableRiskAmountInput.addEventListener('input', handleRiskAmountChange);
+            document.querySelectorAll('.copy-btn').forEach(btn => btn.addEventListener('click', handleCopyClick));
+            saveScenarioBtn.addEventListener('click', saveScenario);
+            loadScenarioSelect.addEventListener('change', loadSelectedScenario);
+            deleteScenarioBtn.addEventListener('click', deleteSelectedScenario);
+            
+            // --- Initial Setup ---
+            loadScenariosIntoSelect();
+
+            // --- Core Functions ---
+            function setTradeDirection(direction) {
+                tradeDirection = direction;
+                slider.className = `slider ${direction}`;
+                buyBtn.classList.toggle('active', direction === 'buy');
+                sellBtn.classList.toggle('active', direction === 'sell');
+            }
+
+            function handleCalculation() {
+                const inputs = getAndValidateInputs();
+                if (!inputs) return;
+
+                clearError();
+                editableRiskAmountInput.disabled = true;
+                riskFeedback.textContent = '';
+
+                const calculations = performCalculations(inputs);
+                displayResults(calculations);
+            }
+
+            function getAndValidateInputs() {
+                const inputs = {
+                    entryPrice: parseFloat(entryPriceInput.value),
+                    accountSize: parseFloat(accountSizeInput.value),
+                    riskPercent: parseFloat(riskPercentInput.value),
+                    rrRatio: parseFloat(rrRatioInput.value),
+                    stopLossPips: parseFloat(stopLossPipsInput.value),
+                    currencyPair: currencyPairInput.value.toUpperCase()
+                };
+
+                if (Object.values(inputs).some(v => !v) || inputs.entryPrice <= 0 || inputs.accountSize <= 0 || inputs.riskPercent <= 0 || inputs.rrRatio <= 0 || inputs.stopLossPips <= 0 || inputs.currencyPair.length < 6) {
+                    showError('Please fill all fields with valid positive numbers.');
+                    return null;
+                }
+                return inputs;
+            }
+
+            function performCalculations(inputs, riskAmountOverride = null) {
+                const riskAmount = riskAmountOverride ?? inputs.accountSize * (inputs.riskPercent / 100);
+                const isJpyPair = inputs.currencyPair.includes('JPY');
+                const pipDecimal = isJpyPair ? 0.01 : 0.0001;
+                const pipValueUsd = 10 / (isJpyPair ? 100 : 1);
+                
+                const lotSize = riskAmount / (inputs.stopLossPips * pipValueUsd);
+                const pipValueForLot = lotSize * pipValueUsd;
+
+                const slPrice = tradeDirection === 'buy' 
+                    ? inputs.entryPrice - (inputs.stopLossPips * pipDecimal)
+                    : inputs.entryPrice + (inputs.stopLossPips * pipDecimal);
+
+                const takeProfitPips = inputs.stopLossPips * inputs.rrRatio;
+                const tpPrice = tradeDirection === 'buy'
+                    ? inputs.entryPrice + (takeProfitPips * pipDecimal)
+                    : inputs.entryPrice - (takeProfitPips * pipDecimal);
+                
+                const spreadPips = 1.0; // Assumed spread for BE calculation
+                const bePrice = tradeDirection === 'buy'
+                    ? inputs.entryPrice + (spreadPips * pipDecimal)
+                    : inputs.entryPrice - (spreadPips * pipDecimal);
+
+                const expectedProfit = riskAmount * inputs.rrRatio;
+
+                return {
+                    riskAmount: riskAmount.toFixed(2),
+                    lotSize: lotSize.toFixed(2),
+                    pipValue: pipValueForLot.toFixed(2),
+                    stopLossPrice: slPrice.toFixed(isJpyPair ? 3 : 5),
+                    takeProfitPrice: tpPrice.toFixed(isJpyPair ? 3 : 5),
+                    breakevenPrice: bePrice.toFixed(isJpyPair ? 3 : 5),
+                    expectedProfit: expectedProfit.toFixed(2),
+                    rrRatio: inputs.rrRatio
+                };
+            }
+
+            function displayResults(data) {
+                editableRiskAmountInput.value = data.riskAmount;
+                resultPipValueCard.querySelector('p:last-child').textContent = `$${data.pipValue} per pip`;
+                resultLotSizeCard.querySelector('p:last-child').textContent = data.lotSize;
+                document.getElementById('sl-price-value').textContent = data.stopLossPrice;
+                document.getElementById('tp-price-value').textContent = data.takeProfitPrice;
+                document.getElementById('be-price-value').textContent = data.breakevenPrice;
+                resultExpectedProfitCard.querySelector('p:last-child').textContent = `$${data.expectedProfit}`;
+                
+                updateVisualBar(data.rrRatio);
+
+                [visualTradeBarContainer, resultRiskAmountCard, resultPipValueCard, resultLotSizeCard, resultStopLossCard, resultTakeProfitCard, resultBreakevenCard, resultExpectedProfitCard]
+                    .forEach(card => card.classList.remove('hidden'));
+            }
+
+            // --- UI Interaction Helpers ---
+            function enableRiskEditing() {
+                editableRiskAmountInput.disabled = false;
+                editableRiskAmountInput.focus();
+                riskFeedback.textContent = 'Editing risk amount...';
+            }
+
+            function handleRiskAmountChange() {
+                const newRiskAmount = parseFloat(editableRiskAmountInput.value);
+                const inputs = getAndValidateInputs();
+                if (!inputs || isNaN(newRiskAmount) || newRiskAmount <= 0) return;
+                
+                const newRiskPercent = (newRiskAmount / inputs.accountSize) * 100;
+                riskPercentInput.value = newRiskPercent.toFixed(2);
+                riskFeedback.textContent = `This is ${newRiskPercent.toFixed(2)}% of your account.`;
+
+                const calcs = performCalculations(inputs, newRiskAmount);
+                resultLotSizeCard.querySelector('p:last-child').textContent = calcs.lotSize;
+                resultExpectedProfitCard.querySelector('p:last-child').textContent = `$${calcs.expectedProfit}`;
+                resultPipValueCard.querySelector('p:last-child').textContent = `$${calcs.pipValue} per pip`;
+            }
+
+            function updateVisualBar(rrRatio) {
+                visualTradeBar.innerHTML = '';
+                const totalParts = 1 + rrRatio;
+                const riskPercent = (1 / totalParts) * 100;
+                const rewardPercent = (rrRatio / totalParts) * 100;
+
+                const riskDiv = document.createElement('div');
+                riskDiv.className = 'visual-bar-risk';
+                riskDiv.style.width = `${riskPercent}%`;
+                
+                const rewardDiv = document.createElement('div');
+                rewardDiv.className = 'visual-bar-reward';
+                rewardDiv.style.width = `${rewardPercent}%`;
+
+                visualTradeBar.appendChild(riskDiv);
+                visualTradeBar.appendChild(rewardDiv);
+            }
+
+            function handleCopyClick(event) {
+                const btn = event.currentTarget;
+                const targetId = btn.dataset.copyTarget;
+                const textToCopy = document.getElementById(targetId).textContent;
+
+                const textarea = document.createElement('textarea');
+                textarea.value = textToCopy;
+                document.body.appendChild(textarea);
+                textarea.select();
+                document.execCommand('copy');
+                document.body.removeChild(textarea);
+
+                const originalContent = btn.innerHTML;
+                btn.innerHTML = 'Copied!';
+                setTimeout(() => { btn.innerHTML = originalContent; }, 1500);
+            }
+
+            function showError(message) {
+                errorMessage.textContent = message;
+                hideResults();
+            }
+
+            function clearError() { errorMessage.textContent = ''; }
+
+            function hideResults() {
+                [visualTradeBarContainer, resultRiskAmountCard, resultPipValueCard, resultLotSizeCard, resultStopLossCard, resultTakeProfitCard, resultBreakevenCard, resultExpectedProfitCard]
+                    .forEach(card => card.classList.add('hidden'));
+            }
+
+            // --- LocalStorage Scenario Functions ---
+            function saveScenario() {
+                const scenarioName = prompt("Enter a name for this scenario:");
+                if (!scenarioName) return;
+
+                const scenarios = JSON.parse(localStorage.getItem('forexCalcScenarios') || '{}');
+                scenarios[scenarioName] = {
+                    currencyPair: currencyPairInput.value,
+                    entryPrice: entryPriceInput.value,
+                    accountSize: accountSizeInput.value,
+                    riskPercent: riskPercentInput.value,
+                    rrRatio: rrRatioInput.value,
+                    stopLossPips: stopLossPipsInput.value
+                };
+                localStorage.setItem('forexCalcScenarios', JSON.stringify(scenarios));
+                loadScenariosIntoSelect();
+                alert(`Scenario "${scenarioName}" saved!`);
+            }
+
+            function loadScenariosIntoSelect() {
+                const scenarios = JSON.parse(localStorage.getItem('forexCalcScenarios') || '{}');
+                loadScenarioSelect.innerHTML = '<option value="">Load a scenario...</option>';
+                for (const name in scenarios) {
+                    const option = document.createElement('option');
+                    option.value = name;
+                    option.textContent = name;
+                    loadScenarioSelect.appendChild(option);
+                }
+            }
+
+            function loadSelectedScenario() {
+                const scenarioName = loadScenarioSelect.value;
+                if (!scenarioName) return;
+
+                const scenarios = JSON.parse(localStorage.getItem('forexCalcScenarios') || '{}');
+                const data = scenarios[scenarioName];
+                if (data) {
+                    currencyPairInput.value = data.currencyPair || '';
+                    entryPriceInput.value = data.entryPrice || '';
+                    accountSizeInput.value = data.accountSize || '';
+                    riskPercentInput.value = data.riskPercent || '1';
+                    rrRatioInput.value = data.rrRatio || '3';
+                    stopLossPipsInput.value = data.stopLossPips || '';
+                }
+            }
+
+            function deleteSelectedScenario() {
+                const scenarioName = loadScenarioSelect.value;
+                if (!scenarioName) {
+                    alert('Please select a scenario to delete.');
+                    return;
+                }
+                if (confirm(`Are you sure you want to delete the "${scenarioName}" scenario?`)) {
+                    const scenarios = JSON.parse(localStorage.getItem('forexCalcScenarios') || '{}');
+                    delete scenarios[scenarioName];
+                    localStorage.setItem('forexCalcScenarios', JSON.stringify(scenarios));
+                    loadScenariosIntoSelect();
+                    alert(`Scenario "${scenarioName}" deleted.`);
+                }
+            }
+        });
+    </script>
+</body>
+</html>
